@@ -154,6 +154,7 @@
 
   // ---------- Data Fetching ----------
   async function fetchSnapshot() {
+    let apiErr = "";
     try {
       const apiRes = await fetch(`https://api.github.com/gists/${gistId}`, {
         headers: { Accept: "application/vnd.github+json" },
@@ -165,13 +166,22 @@
         if (fileObj && fileObj.content) {
           return { data: JSON.parse(fileObj.content), source: "GitHub API" };
         }
+      } else {
+        apiErr = `API ${apiRes.status}`;
       }
-    } catch (_) {}
+    } catch (e) {
+      apiErr = e && e.message ? `API ${e.message}` : "API 不可达";
+    }
 
     const rawUrl = `https://gist.githubusercontent.com/${GIST_OWNER}/${gistId}/raw/${GIST_FILE}?t=${Date.now()}`;
-    const rawRes = await fetch(rawUrl, { cache: "no-store" });
-    if (!rawRes.ok) throw new Error(`HTTP ${rawRes.status}`);
-    return { data: await rawRes.json(), source: "Gist Raw" };
+    try {
+      const rawRes = await fetch(rawUrl, { cache: "no-store" });
+      if (!rawRes.ok) throw new Error(`Raw ${rawRes.status}`);
+      return { data: await rawRes.json(), source: "Gist Raw" };
+    } catch (e) {
+      const rawErr = e && e.message ? e.message : "Raw 不可达";
+      throw new Error(`${apiErr} / ${rawErr}`);
+    }
   }
 
   async function loadData(isManual = false) {
@@ -181,22 +191,26 @@
     btn.classList.add("loading");
     if (isManual) document.getElementById("refreshLabel").textContent = "同步中";
 
+    let fetched = null;
     try {
-      const { data, source } = await fetchSnapshot();
-      state.data = data;
-      state.sourceLabel = source;
-      state.nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
-      try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch (_) {}
-      document.getElementById("noticeBanner").hidden = true;
-      renderAll();
+      fetched = await fetchSnapshot();
     } catch (err) {
       document.getElementById("noticeText").textContent =
-        `同步失败（${err.message || "网络异常"}），${state.data ? "当前展示本地缓存快照" : "请检查网络后重试"}。`;
+        `无法连接 Gist 数据源（${err.message || "网络异常"}），${state.data ? "当前展示本地缓存快照" : "若当前设备未开代理可能无法访问 GitHub Gist"}。`;
       document.getElementById("noticeBanner").hidden = false;
     } finally {
       state.loading = false;
       btn.classList.remove("loading");
       document.getElementById("refreshLabel").textContent = "刷新";
+    }
+
+    if (fetched) {
+      state.data = fetched.data;
+      state.sourceLabel = fetched.source;
+      state.nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify(fetched.data)); } catch (_) {}
+      document.getElementById("noticeBanner").hidden = true;
+      renderAll();
     }
   }
 
