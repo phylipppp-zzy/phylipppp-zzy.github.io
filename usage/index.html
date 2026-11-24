@@ -3,187 +3,218 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="color-scheme" content="light dark">
-  <title>AI 用量与额度看板 · Token Telemetry</title>
+  <meta name="color-scheme" content="dark light">
+  <title>AI Telemetry · 用量与额度看板</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app-shell">
-    <!-- Top Bar -->
-    <header class="topbar">
-      <div class="topbar-left">
-        <div class="brand-row">
-          <span class="brand-mark" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 3v18h18"/>
-              <path d="M7 15l4-4 4 3 5-6"/>
-            </svg>
-          </span>
-          <div>
-            <h1 class="brand-title">AI 用量与额度看板</h1>
-            <p class="brand-sub">Codex · Antigravity · Claude 实时额度与消耗监测</p>
-          </div>
+  <div class="ambient-bg" aria-hidden="true"></div>
+
+  <!-- Sticky Translucent Navbar -->
+  <nav class="navbar">
+    <div class="nav-inner">
+      <div class="nav-brand">
+        <div class="logo-badge" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">AI Telemetry</span>
+          <span class="brand-sep">/</span>
+          <span class="brand-sub">Usage &amp; Quota</span>
         </div>
       </div>
 
-      <div class="topbar-right">
-        <div class="sync-pill" id="syncPill" title="每 10 分钟由本机自动同步">
-          <span class="sync-dot" id="syncDot"></span>
-          <span id="syncText">正在加载快照…</span>
+      <div class="nav-right">
+        <div class="status-chip" id="syncPill" title="每 10 分钟由本机自动推送脱敏快照">
+          <span class="pulse-dot" id="syncDot"></span>
+          <span id="syncText">正在同步…</span>
         </div>
-        <div class="topbar-actions">
-          <button class="icon-btn" id="refreshBtn" type="button" title="立即刷新数据">
-            <svg class="refresh-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
-              <polyline points="21 3 21 9 15 9"/>
-            </svg>
-            <span class="btn-label" id="refreshLabel">刷新</span>
-          </button>
-          <button class="icon-btn icon-only" id="themeBtn" type="button" title="切换明暗主题" aria-label="切换明暗主题">
-            <svg id="themeIconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="4"/>
-              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-            </svg>
-            <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-          </button>
-        </div>
+        <span class="next-sync-tag" id="nextRefreshMeta">--:--</span>
+        <button class="nav-btn" id="refreshBtn" type="button" title="立即刷新">
+          <svg class="spin-target" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
+            <polyline points="21 3 21 9 15 9"/>
+          </svg>
+          <span class="nav-btn-text" id="refreshLabel">刷新</span>
+        </button>
+        <button class="nav-btn icon-only" id="themeBtn" type="button" title="切换浅色 / 深色主题" aria-label="切换主题">
+          <svg id="themeIconSun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+          </svg>
+          <svg id="themeIconMoon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
       </div>
-    </header>
+    </div>
+  </nav>
 
-    <!-- Error / Notice Banner -->
+  <main class="container">
+    <!-- Notice Banner -->
     <div class="notice-banner" id="noticeBanner" hidden>
       <span id="noticeText"></span>
       <button class="notice-retry" id="noticeRetry" type="button">重试</button>
     </div>
 
-    <!-- Section 1: Quota Command Deck -->
-    <section class="section" aria-labelledby="sec-quota">
-      <div class="section-head">
-        <div>
-          <h2 class="section-title" id="sec-quota">实时额度健康度</h2>
-          <p class="section-desc">各后端当前窗口剩余比例与重置倒计时（北京时间）</p>
-        </div>
-        <div class="countdown-meta" id="nextRefreshMeta">下次自动刷新：--:--</div>
-      </div>
-      <div class="quota-grid" id="quotaGrid">
-        <div class="card skeleton-card"></div>
-        <div class="card skeleton-card"></div>
-        <div class="card skeleton-card"></div>
-      </div>
-    </section>
-
-    <!-- Section 2: Executive KPI Strip -->
-    <section class="section" aria-labelledby="sec-kpi">
-      <div class="section-head">
-        <div>
-          <h2 class="section-title" id="sec-kpi">消耗总览</h2>
-          <p class="section-desc">全后端汇总指标，切换时间范围同步联动下方模型排行</p>
-        </div>
-        <div class="segmented" id="kpiRangeGroup" role="tablist" aria-label="汇总时间范围">
-          <button class="seg-btn active" data-range="today" role="tab" aria-selected="true">今日</button>
-          <button class="seg-btn" data-range="d7" role="tab" aria-selected="false">近 7 天</button>
-          <button class="seg-btn" data-range="d30" role="tab" aria-selected="false">近 30 天</button>
-        </div>
-      </div>
-      <div class="kpi-grid" id="kpiGrid">
-        <div class="card skeleton-kpi"></div>
-        <div class="card skeleton-kpi"></div>
-        <div class="card skeleton-kpi"></div>
-        <div class="card skeleton-kpi"></div>
-      </div>
-    </section>
-
-    <!-- Section 3: Trend Explorer -->
-    <section class="section" aria-labelledby="sec-trend">
-      <div class="card chart-card">
-        <div class="chart-header">
+    <!-- ROW 1: Bento Hero (Spend Overview + Live Quota Rings) -->
+    <section class="bento-hero">
+      <!-- Left: Spend & Core Telemetry -->
+      <article class="panel hero-spend" id="heroSpendCard">
+        <div class="panel-head">
           <div>
-            <h2 class="section-title" id="sec-trend">用量趋势分析</h2>
-            <p class="section-desc" id="chartSubtitle">按小时查看最近 24 小时各后端消耗节奏</p>
+            <div class="eyebrow">API EQUIVALENT SPEND</div>
+            <h1 class="panel-title">消耗总览</h1>
           </div>
-          <div class="chart-controls">
-            <div class="segmented" id="trendSpanGroup" role="tablist" aria-label="趋势时间跨度">
-              <button class="seg-btn active" data-span="24h" role="tab" aria-selected="true">24 小时</button>
-              <button class="seg-btn" data-span="7d" role="tab" aria-selected="false">近 7 天</button>
-              <button class="seg-btn" data-span="30d" role="tab" aria-selected="false">近 30 天</button>
-            </div>
-            <div class="segmented" id="trendMetricGroup" role="tablist" aria-label="趋势指标">
-              <button class="seg-btn active" data-metric="cost_usd" role="tab" aria-selected="true">费用 ($)</button>
-              <button class="seg-btn" data-metric="total_tokens" role="tab" aria-selected="false">Token</button>
-              <button class="seg-btn" data-metric="requests" role="tab" aria-selected="false">调用数</button>
-            </div>
+          <div class="segmented" id="kpiRangeGroup" role="tablist" aria-label="统计周期">
+            <button class="seg-btn active" data-range="today" role="tab" aria-selected="true">今日</button>
+            <button class="seg-btn" data-range="d7" role="tab" aria-selected="false">7 天</button>
+            <button class="seg-btn" data-range="d30" role="tab" aria-selected="false">30 天</button>
           </div>
         </div>
 
-        <div class="chart-subbar">
-          <div class="filter-chips" id="backendFilterGroup" aria-label="后端筛选">
-            <button class="chip active" data-backend="all"><span class="chip-dot dot-all"></span>全部</button>
-            <button class="chip" data-backend="codex"><span class="chip-dot dot-codex"></span>Codex</button>
-            <button class="chip" data-backend="antigravity"><span class="chip-dot dot-antigravity"></span>Antigravity</button>
-            <button class="chip" data-backend="claude"><span class="chip-dot dot-claude"></span>Claude</button>
-          </div>
-          <div class="chart-stats" id="chartStats"></div>
+        <div class="hero-figure-row">
+          <div class="hero-amount" id="heroAmount">--</div>
+          <div class="hero-delta" id="heroDelta"></div>
         </div>
 
-        <div class="chart-stage" id="chartStage">
-          <svg id="trendSvg" class="trend-svg" viewBox="0 0 920 270" preserveAspectRatio="none" role="img" aria-label="用量趋势堆叠柱状图"></svg>
-          <div class="chart-tooltip" id="chartTooltip" hidden></div>
+        <!-- Backend Share Proportional Bar -->
+        <div class="share-strip-wrap">
+          <div class="share-strip" id="backendShareBar"></div>
+          <div class="share-legend" id="backendShareLegend"></div>
         </div>
+
+        <!-- 3 Compact Telemetry Metrics -->
+        <div class="mini-metrics" id="miniMetrics">
+          <div class="mini-metric">
+            <span class="mm-label">总 Token</span>
+            <span class="mm-val" id="mmTokens">--</span>
+            <span class="mm-sub" id="mmTokensSub">--</span>
+          </div>
+          <div class="mini-metric">
+            <span class="mm-label">缓存命中率</span>
+            <span class="mm-val" id="mmCache">--</span>
+            <span class="mm-sub" id="mmCacheSub">--</span>
+          </div>
+          <div class="mini-metric">
+            <span class="mm-label">调用次数</span>
+            <span class="mm-val" id="mmReqs">--</span>
+            <span class="mm-sub" id="mmReqsSub">--</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Right: Live Quota Rings Command Deck -->
+      <article class="panel hero-quota">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">LIVE QUOTA WINDOWS</div>
+            <h2 class="panel-title">实时额度仪表盘</h2>
+          </div>
+          <span class="panel-hint">北京时间 · 实时倒计时</span>
+        </div>
+
+        <div class="rings-grid" id="quotaRingsGrid">
+          <div class="ring-skeleton"></div>
+          <div class="ring-skeleton"></div>
+          <div class="ring-skeleton"></div>
+        </div>
+
+        <div class="quota-footer-bar" id="quotaFooterBar"></div>
+      </article>
+    </section>
+
+    <!-- ROW 2: Interactive Trend Chart -->
+    <section class="panel chart-panel">
+      <div class="chart-top">
+        <div>
+          <div class="eyebrow">USAGE TELEMETRY</div>
+          <h2 class="panel-title">消耗趋势分析</h2>
+        </div>
+        <div class="chart-toolbar">
+          <div class="segmented" id="trendSpanGroup" role="tablist" aria-label="时间跨度">
+            <button class="seg-btn active" data-span="24h" role="tab" aria-selected="true">24 小时</button>
+            <button class="seg-btn" data-span="7d" role="tab" aria-selected="false">近 7 天</button>
+            <button class="seg-btn" data-span="30d" role="tab" aria-selected="false">近 30 天</button>
+          </div>
+          <div class="segmented" id="trendMetricGroup" role="tablist" aria-label="指标切换">
+            <button class="seg-btn active" data-metric="cost_usd" role="tab" aria-selected="true">费用</button>
+            <button class="seg-btn" data-metric="total_tokens" role="tab" aria-selected="false">Token</button>
+            <button class="seg-btn" data-metric="requests" role="tab" aria-selected="false">调用</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-meta-row">
+        <div class="filter-pills" id="backendFilterGroup">
+          <button class="pill active" data-backend="all"><span class="pdot all"></span>全部后端</button>
+          <button class="pill" data-backend="codex"><span class="pdot codex"></span>Codex</button>
+          <button class="pill" data-backend="antigravity"><span class="pdot antigravity"></span>Antigravity</button>
+          <button class="pill" data-backend="claude"><span class="pdot claude"></span>Claude</button>
+        </div>
+        <div class="chart-kpis" id="chartStats"></div>
+      </div>
+
+      <div class="chart-canvas-wrap" id="chartStage">
+        <svg id="trendSvg" class="trend-svg" role="img" aria-label="用量趋势柱状图"></svg>
+        <div class="chart-tooltip" id="chartTooltip" hidden></div>
       </div>
     </section>
 
-    <!-- Section 4: Model Consumption Leaderboard -->
-    <section class="section" aria-labelledby="sec-models">
-      <div class="card table-card">
-        <div class="table-header">
+    <!-- ROW 3: Two-Column Deep Dive (Model Leaderboard + Claude Cycles) -->
+    <section class="bento-bottom">
+      <!-- Left: Model Leaderboard -->
+      <article class="panel models-panel">
+        <div class="panel-head">
           <div>
-            <h2 class="section-title" id="sec-models">模型消耗排行</h2>
-            <p class="section-desc" id="modelSubtitle">当前范围：今日 · 按 API 等价估算费用排序</p>
+            <div class="eyebrow">MODEL BREAKDOWN</div>
+            <h2 class="panel-title">模型消耗排行 <span class="title-badge" id="modelRangeBadge">今日</span></h2>
           </div>
-          <div class="filter-chips compact" id="modelBackendFilter" aria-label="按后端筛选模型">
-            <button class="chip active" data-backend="all">全部</button>
-            <button class="chip" data-backend="codex">Codex</button>
-            <button class="chip" data-backend="antigravity">Antigravity</button>
-            <button class="chip" data-backend="claude">Claude</button>
+          <div class="filter-pills compact" id="modelBackendFilter">
+            <button class="pill active" data-backend="all">全部</button>
+            <button class="pill" data-backend="codex">Codex</button>
+            <button class="pill" data-backend="antigravity">Antigravity</button>
+            <button class="pill" data-backend="claude">Claude</button>
           </div>
         </div>
-        <div class="table-wrap">
-          <table class="data-table" id="modelTable">
+
+        <div class="table-scroll">
+          <table class="clean-table">
             <thead>
               <tr>
                 <th>模型</th>
                 <th class="num">估算费用</th>
-                <th class="bar-col">费用占比</th>
-                <th class="num">调用数</th>
+                <th class="bar-th">占比</th>
+                <th class="num">调用</th>
                 <th class="num">总 Token</th>
-                <th class="num">输出</th>
-                <th class="num">缓存命中</th>
+                <th class="num">缓存率</th>
               </tr>
             </thead>
             <tbody id="modelTableBody"></tbody>
           </table>
         </div>
-      </div>
-    </section>
+      </article>
 
-    <!-- Section 5: Claude Historical Billing Cycles -->
-    <section class="section" aria-labelledby="sec-cycles">
-      <div class="section-head">
-        <div>
-          <h2 class="section-title" id="sec-cycles">Claude 历史计费周期</h2>
-          <p class="section-desc">按每周计费窗口归档，对照本机日志估算与网站记录费用</p>
+      <!-- Right: Claude Billing Cycles -->
+      <article class="panel cycles-panel">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">BILLING ARCHIVE</div>
+            <h2 class="panel-title">Claude 计费周期</h2>
+          </div>
+          <span class="panel-hint">每周一 13:00 重置</span>
         </div>
-      </div>
-      <div class="cycles-grid" id="cyclesGrid"></div>
+        <div class="cycles-list" id="cyclesList"></div>
+      </article>
     </section>
 
     <footer class="footer">
-      <p>数据口径说明：费用按各厂商官方 API Standard 短上下文单价估算，仅用于量化消耗规模，不代表实际订阅扣费。页面不含任何主机名、账号或密钥信息，每 10 分钟由本机定时推送脱敏快照。</p>
-      <p class="footer-meta" id="footerMeta"></p>
+      <span>费用按官方 API Standard 短上下文单价估算，仅作消耗量级参考，非实际账单扣费。页面不含主机名、账号与密钥信息。</span>
+      <span id="footerMeta"></span>
     </footer>
-  </div>
+  </main>
 
   <script src="app.js"></script>
 </body>
