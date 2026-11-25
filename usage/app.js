@@ -7,6 +7,15 @@
   const CACHE_KEY = "ai_usage_dashboard_snapshot_v1";
   const THEME_KEY = "ai_usage_dashboard_theme_v2";
   const AUTO_REFRESH_MS = 10 * 60 * 1000;
+  const FAILURE_BACKOFF_MS = [30 * 1000, 60 * 1000, 120 * 1000, 300 * 1000, AUTO_REFRESH_MS];
+
+  function computeNextBackoffMs(consecutiveFailures) {
+    if (!Number.isFinite(consecutiveFailures) || consecutiveFailures <= 0) {
+      return AUTO_REFRESH_MS;
+    }
+    const idx = Math.min(consecutiveFailures - 1, FAILURE_BACKOFF_MS.length - 1);
+    return FAILURE_BACKOFF_MS[idx];
+  }
 
   const BACKEND_COLORS = {
     codex: "var(--codex)",
@@ -28,6 +37,8 @@
     trendBackend: "all",
     modelBackend: "all",
     nextRefreshAt: Date.now() + AUTO_REFRESH_MS,
+    consecutiveFailures: 0,
+    lastError: "",
     loading: false,
     sourceLabel: "",
   };
@@ -190,13 +201,20 @@
     const btn = document.getElementById("refreshBtn");
     btn.classList.add("loading");
     if (isManual) document.getElementById("refreshLabel").textContent = "同步中";
+    renderCountdown();
 
     let fetched = null;
     try {
       fetched = await fetchSnapshot();
     } catch (err) {
+      state.consecutiveFailures += 1;
+      const backoffMs = computeNextBackoffMs(state.consecutiveFailures);
+      state.nextRefreshAt = Date.now() + backoffMs;
+      state.lastError = err && err.message ? err.message : "网络异常";
+      const backoffSec = Math.round(backoffMs / 1000);
+      const backoffText = backoffSec >= 60 ? `${Math.round(backoffSec / 60)} 分钟` : `${backoffSec} 秒`;
       document.getElementById("noticeText").textContent =
-        `无法连接 Gist 数据源（${err.message || "网络异常"}），${state.data ? "当前展示本地缓存快照" : "若当前设备未开代理可能无法访问 GitHub Gist"}。`;
+        `无法连接 Gist 数据源（${state.lastError}），${state.data ? "当前展示本地缓存快照，" : "若当前设备未开代理可能无法访问 GitHub Gist，"}将于 ${backoffText}后自动重试（连续失败 ${state.consecutiveFailures} 次）。`;
       document.getElementById("noticeBanner").hidden = false;
     } finally {
       state.loading = false;
@@ -207,24 +225,44 @@
     if (fetched) {
       state.data = fetched.data;
       state.sourceLabel = fetched.source;
+      state.consecutiveFailures = 0;
+      state.lastError = "";
       state.nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
       try { localStorage.setItem(CACHE_KEY, JSON.stringify(fetched.data)); } catch (_) {}
       document.getElementById("noticeBanner").hidden = true;
       renderAll();
+    } else {
+      renderSyncStatus();
     }
   }
 
   // ---------- Render: Sync Status ----------
-  function renderSyncStatus() {
-    if (!state.data) return;
-    const { text, level } = fmtAge(state.data.generated_at);
-    document.getElementById("syncDot").className = "pulse-dot " + level;
-    document.getElementById("syncText").textContent = text;
-
+  function renderCountdown() {
+    const el = document.getElementById("nextRefreshMeta");
+    if (!el) return;
+    if (state.loading) {
+      el.textContent = "同步中";
+      return;
+    }
     const remMs = Math.max(0, state.nextRefreshAt - Date.now());
     const m = Math.floor(remMs / 60000);
     const s = Math.floor((remMs % 60000) / 1000);
-    document.getElementById("nextRefreshMeta").textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    const clock = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    el.textContent = state.consecutiveFailures > 0 ? `重试 ${clock}` : clock;
+  }
+
+  function renderSyncStatus() {
+    renderCountdown();
+    if (!state.data) {
+      if (state.consecutiveFailures > 0) {
+        document.getElementById("syncDot").className = "pulse-dot stale";
+        document.getElementById("syncText").textContent = "同步失败";
+      }
+      return;
+    }
+    const { text, level } = fmtAge(state.data.generated_at);
+    document.getElementById("syncDot").className = "pulse-dot " + level;
+    document.getElementById("syncText").textContent = text;
 
     document.getElementById("footerMeta").textContent =
       `更新于 ${fmtBjTime(state.data.generated_at, true)} · ${state.sourceLabel || "缓存"}`;
@@ -737,9 +775,9 @@
   let ticks = 0;
   setInterval(() => {
     ticks += 1;
-    if (state.data) {
-      renderSyncStatus();
-      if (ticks % 60 === 0) renderQuotaRings();
+    renderSyncStatus();
+    if (state.data && ticks % 60 === 0) {
+      renderQuotaRings();
     }
     if (Date.now() >= state.nextRefreshAt && !state.loading) {
       loadData(false);
